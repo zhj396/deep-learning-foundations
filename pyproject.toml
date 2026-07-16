@@ -11,8 +11,11 @@ description = "Deep-learning fundamentals: multi-backbone CIFAR-10 training (Ten
 requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
-# Run both cifar10 suites from the repository root; pytest inserts each
-# test directory into sys.path, which the flat module layouts' imports
-# (from config import Config, ... in train; from app import app, ...
-# in inference) rely on.
-testpaths = ["cifar10/train", "cifar10/inference"]
+# Run all suites from the repository root; pytest inserts each test
+# directory into sys.path, which the flat module layouts' imports (from
+# config import Config, ... in cifar10/train; from app import app, ...
+# in cifar10/inference; from prep_config import ... in
+# transformer-pt-en/data_prep) rely on. The transformer-pt-en/tests
+# suite needs xxhash (data_prep/requirements.txt); without it those
+# tests are skipped, not failed.
+testpaths = ["cifar10/train", "cifar10/inference", "transformer-pt-en/tests"]

@@ -11,3 +11,5 @@ exclude =
 per-file-ignores =
     # TF env vars must be set before `import tensorflow`
     cifar10/train/train.py: E402
+    # importorskip must run before the module imports xxhash
+    transformer-pt-en/tests/test_cleaning.py: E402
