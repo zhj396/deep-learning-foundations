@@ -1,0 +1,15 @@
+# ============================================================
+# Training dependencies (Python >= 3.10). Install:
+#   pip install -r requirements.txt
+# On Kaggle the preinstalled torch (CUDA build) works -- do NOT
+# reinstall it; just add the remaining packages.
+# Local CPU-only install (smoke runs):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# ============================================================
+torch>=2.1             # DDP, torch.amp, weights_only checkpoint loading
+sentencepiece>=0.2.0   # loads spm_en_pt.model for encode/decode
+sacrebleu>=2.4         # corpus BLEU (comparable signature across runs)
+numpy>=1.26            # seeding / array glue
+tqdm                   # progress bars
+matplotlib             # training_history.png (loss / acc / BLEU / LR)
+pyyaml                 # config.yaml save/load
