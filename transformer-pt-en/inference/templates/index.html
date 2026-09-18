@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>pt &rarr; en Translation</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    .pulse-dot { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); opacity: 1 } 70% { transform: scale(1.6); opacity: .3 } 100% { transform: scale(1); opacity: 1 } }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div class="max-w-5xl mx-auto p-6">
+    <header class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold">Portuguese &rarr; English Translation</h1>
+      <div class="flex items-center gap-3 text-sm text-slate-600">
+        <span id="backendBadge" class="px-2 py-1 rounded bg-slate-200 font-mono">backend: ?</span>
+        <span class="flex items-center gap-1">
+          <span id="healthDot" class="pulse-dot inline-block w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+          <span id="healthText">checking...</span>
+        </span>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Text translation -->
+      <div class="bg-white p-4 rounded shadow space-y-4">
+        <h2 class="text-lg font-semibold">Translate Text</h2>
+
+        <div class="flex flex-wrap items-center gap-4 text-sm">
+          <label class="flex items-center gap-2">
+            Model
+            <select id="modelSelect" class="border rounded px-2 py-1 bg-white"></select>
+          </label>
+          <label class="flex items-center gap-2">
+            Max length
+            <input id="maxLen" type="number" value="128" min="2" max="1024"
+                   class="border rounded px-2 py-1 w-20" />
+          </label>
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-1">
+              <input type="radio" name="mode" value="greedy" checked /> greedy
+            </label>
+            <label id="beamLabel" class="flex items-center gap-1" title="beam search needs the torch backend">
+              <input type="radio" name="mode" value="beam" id="beamRadio" /> beam
+            </label>
+            <input id="beamSize" type="number" value="4" min="1" max="16"
+                   class="border rounded px-2 py-1 w-16 text-xs" title="beam size" />
+          </div>
+        </div>
+
+        <textarea id="srcText" rows="5" placeholder="Digite uma frase em portugues..."
+                  class="w-full border rounded p-2 font-mono text-sm"></textarea>
+
+        <div class="flex items-center gap-3">
+          <button id="translateBtn"
+                  class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">
+            Translate
+          </button>
+          <span id="latencyBadge" class="text-xs text-slate-500"></span>
+        </div>
+
+        <div>
+          <div class="text-sm font-medium text-slate-500 mb-1">Translation</div>
+          <div id="outText" class="w-full border rounded p-2 bg-slate-50 font-mono text-sm min-h-[3rem] whitespace-pre-wrap"></div>
+        </div>
+        <div id="textError" class="hidden text-sm text-red-600"></div>
+      </div>
+
+      <!-- File translation -->
+      <div class="bg-white p-4 rounded shadow space-y-4">
+        <h2 class="text-lg font-semibold">Translate a .txt File</h2>
+        <p class="text-sm text-slate-500">One sentence per line. Results are line-aligned and downloadable.</p>
+
+        <input id="fileInput" type="file" accept=".txt"
+               class="block w-full text-sm border rounded p-2 bg-white" />
+
+        <button id="fileBtn"
+                class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">
+          Translate File
+        </button>
+
+        <div id="fileStatus" class="text-sm text-slate-500"></div>
+        <div id="fileError" class="hidden text-sm text-red-600"></div>
+
+        <div id="fileResults" class="hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-slate-500">Preview (first 50)</span>
+            <a id="downloadLink" href="#" class="text-sm text-indigo-600 hover:underline">Download .txt</a>
+          </div>
+          <div class="overflow-auto max-h-72 border rounded">
+            <table class="w-full text-xs font-mono">
+              <thead class="bg-slate-100 sticky top-0">
+                <tr><th class="text-left p-2">#</th><th class="text-left p-2">source</th><th class="text-left p-2">translation</th></tr>
+              </thead>
+              <tbody id="fileRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="mt-6 text-xs text-slate-400">
+      Transformer (Attention Is All You Need) trained pt&rarr;en &middot; dynamic batching merges
+      concurrent requests into single decode calls &middot; see <span class="font-mono">inference/README.md</span>
+    </footer>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let health = null;
+
+    async function refreshHealth() {
+      try {
+        const r = await fetch('/health');
+        health = await r.json();
+        $('backendBadge').textContent = 'backend: ' + health.backend;
+        $('healthDot').className = 'pulse-dot inline-block w-2.5 h-2.5 rounded-full bg-emerald-500';
+        $('healthText').textContent = 'healthy';
+
+        const sel = $('modelSelect');
+        const prev = sel.value;
+        sel.innerHTML = '';
+        (health.models_available.length ? health.models_available : ['(none)']).forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = opt.textContent = m;
+          sel.appendChild(opt);
+        });
+        if (prev && health.models_available.includes(prev)) sel.value = prev;
+
+        const beamOk = health.modes.includes('beam');
+        $('beamRadio').disabled = !beamOk;
+        $('beamLabel').classList.toggle('opacity-40', !beamOk);
+        $('beamLabel').title = beamOk ? '' : 'beam search needs BACKEND=torch';
+      } catch (e) {
+        $('healthDot').className = 'pulse-dot inline-block w-2.5 h-2.5 rounded-full bg-red-500';
+        $('healthText').textContent = 'unreachable';
+      }
+    }
+
+    function showError(id, msg) {
+      const el = $(id);
+      if (msg) { el.textContent = msg; el.classList.remove('hidden'); }
+      else { el.textContent = ''; el.classList.add('hidden'); }
+    }
+
+    function commonFields() {
+      return {
+        model: $('modelSelect').value,
+        mode: document.querySelector('input[name=mode]:checked').value,
+        max_len: parseInt($('maxLen').value || '128', 10),
+        beam_size: parseInt($('beamSize').value || '4', 10),
+      };
+    }
+
+    $('translateBtn').addEventListener('click', async () => {
+      showError('textError', null);
+      const text = $('srcText').value.trim();
+      if (!text) { showError('textError', 'Type some Portuguese text first.'); return; }
+
+      $('translateBtn').disabled = true;
+      $('latencyBadge').textContent = 'translating...';
+      try {
+        const r = await fetch('/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, ...commonFields() }),
+        });
+        const data = await r.json();
+        if (!r.ok || data.status !== 'success') throw new Error(data.error || r.statusText);
+        $('outText').textContent = data.translations.map(t => t.translation).join('\n');
+        $('latencyBadge').textContent =
+          `${data.latency_ms} ms · ${data.backend} · ${data.mode}` +
+          (data.failed ? ` · ${data.failed.length} failed` : '');
+      } catch (e) {
+        showError('textError', String(e.message || e));
+        $('latencyBadge').textContent = '';
+      } finally {
+        $('translateBtn').disabled = false;
+      }
+    });
+
+    $('fileBtn').addEventListener('click', async () => {
+      showError('fileError', null);
+      const f = $('fileInput').files[0];
+      if (!f) { showError('fileError', 'Choose a .txt file first.'); return; }
+
+      const fd = new FormData();
+      fd.append('file', f);
+      for (const [k, v] of Object.entries(commonFields())) fd.append(k, v);
+
+      $('fileBtn').disabled = true;
+      $('fileStatus').textContent = 'translating...';
+      $('fileResults').classList.add('hidden');
+      try {
+        const r = await fetch('/translate_file', { method: 'POST', body: fd });
+        const data = await r.json();
+        if (!r.ok || data.status !== 'success') throw new Error(data.error || r.statusText);
+
+        $('fileStatus').textContent =
+          `${data.total} line(s) in ${data.latency_ms} ms · ${data.backend} · ${data.mode}`;
+        $('downloadLink').href = data.download_url;
+
+        const rows = (data.preview || []).map(p =>
+          `<tr class="border-t"><td class="p-2">${p.index + 1}</td>` +
+          `<td class="p-2">${escapeHtml(p.text)}</td>` +
+          `<td class="p-2">${escapeHtml(p.translation)}</td></tr>`).join('');
+        $('fileRows').innerHTML = rows;
+        $('fileResults').classList.remove('hidden');
+      } catch (e) {
+        showError('fileError', String(e.message || e));
+        $('fileStatus').textContent = '';
+      } finally {
+        $('fileBtn').disabled = false;
+      }
+    });
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    refreshHealth();
+    setInterval(refreshHealth, 10000);
+  </script>
+</body>
+</html>

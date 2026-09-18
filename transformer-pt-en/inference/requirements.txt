@@ -1,0 +1,16 @@
+# ============================================================
+# Inference service dependencies (local CPU). Install:
+#   pip install -r requirements.txt
+#
+# BACKEND=torch additionally needs torch -- see ../train/requirements.txt
+# (the CPU wheel is enough for serving).
+# BACKEND=onnx needs NO torch at all -- the edge deployment path:
+#   pip install flask flask-cors sentencepiece numpy onnxruntime
+# ============================================================
+flask>=3.0
+flask-cors
+sentencepiece>=0.2.0   # tokenizer (spm_en_pt.model)
+numpy>=1.26            # batch collation, ORT glue
+
+# ---- ONNX backend (BACKEND=onnx) ----
+onnxruntime>=1.17
