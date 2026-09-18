@@ -1,4 +1,4 @@
-"""Shared fixtures: sys.path bootstrap and fake SentencePiece.
+"""Shared fixtures: sys.path bootstrap, fake SentencePiece, tiny model/cfg.
 
 The train/ and data_prep/ directories are flat script dirs (no packages),
 so tests import them via sys.path.
@@ -6,8 +6,10 @@ so tests import them via sys.path.
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 for _p in (ROOT / "train", ROOT / "data_prep"):
@@ -56,3 +58,46 @@ class FakeSP:
 @pytest.fixture
 def fake_sp():
     return FakeSP()
+
+
+@pytest.fixture
+def tiny_cfg():
+    """Small but valid config for fast CPU tests."""
+    return SimpleNamespace(
+        d_model=16,
+        num_layers=2,
+        num_heads=2,
+        d_ff=32,
+        vocab_size=32,
+        dropout=0.0,
+        max_len=64,
+        tie_weights=True,
+        pad_idx=0,
+        unk_idx=1,
+        bos_idx=2,
+        eos_idx=3,
+        label_smoothing=0.1,
+        lr_min_scale=0.1,
+        patience=3,
+        seed=0,
+    )
+
+
+@pytest.fixture
+def tiny_model(tiny_cfg):
+    from model import Transformer
+
+    torch.manual_seed(0)
+    m = Transformer(
+        src_vocab=tiny_cfg.vocab_size,
+        tgt_vocab=tiny_cfg.vocab_size,
+        d_model=tiny_cfg.d_model,
+        num_layers=tiny_cfg.num_layers,
+        num_heads=tiny_cfg.num_heads,
+        d_ff=tiny_cfg.d_ff,
+        dropout=tiny_cfg.dropout,
+        max_len=tiny_cfg.max_len,
+        tie_weights=tiny_cfg.tie_weights,
+    )
+    m.eval()
+    return m
