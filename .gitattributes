@@ -1,0 +1,16 @@
+# Normalize line endings: all text files are stored and checked out with LF,
+# on every platform, regardless of core.autocrlf settings.
+* text=auto eol=lf
+
+# Binary files: never normalize (git also auto-detects, listed for clarity)
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.keras binary
+*.onnx binary
+*.tflite binary

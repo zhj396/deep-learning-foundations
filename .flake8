@@ -1,0 +1,13 @@
+[flake8]
+max-line-length = 100
+extend-ignore =
+    # black-compatible slicing / unary-operator rules
+    E203,
+    W503
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache
+per-file-ignores =
+    # TF env vars must be set before `import tensorflow`
+    cifar10/train/train.py: E402

@@ -1,0 +1,17 @@
+# Project metadata and tool configuration.
+#
+# This repository is a collection of training scripts, not an
+# installable package: there is deliberately no [build-system] section.
+# Flake8 configuration stays in .flake8 (flake8 does not read this file).
+
+[project]
+name = "deep-learning-foundations"
+version = "0.1.0"
+description = "Deep-learning fundamentals: multi-backbone CIFAR-10 training (TensorFlow / Keras 3)"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+# Run the cifar10 smoke suite from the repository root; pytest inserts
+# cifar10/train into sys.path, which the flat module layout's imports
+# (from config import Config, ...) rely on.
+testpaths = ["cifar10/train"]

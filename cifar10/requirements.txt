@@ -1,0 +1,27 @@
+# ============================================================
+# CIFAR-10 project dependencies (Python >= 3.10 recommended)
+# ============================================================
+# Install everything:   pip install -r requirements.txt
+
+# ---- Training (cifar10/train) ----
+# Version floors: TensorFlow >= 2.18 and Keras >= 3.10. Keras 3.7-3.9 has a
+# multi-GPU MirroredStrategy bug that reports metrics as NaN mid-epoch while
+# the model still trains (keras-team/keras#21467). On Kaggle the preinstalled
+# TF also works as long as its Keras is >= 3.10.
+# The [and-cuda] extra bundles NVIDIA CUDA/cuDNN wheels (Linux GPU machines;
+# Windows-native TensorFlow has no GPU support - use the plain CPU build
+# below, or WSL2 which follows the Linux path).
+# CPU-only machine? Install plain `tensorflow>=2.18` instead — same package,
+# it falls back to CPU automatically (skip the ~3 GB of CUDA wheels). CPU is
+# fine for `--mode sanity` smoke tests and inference, not for full training.
+tensorflow[and-cuda]>=2.18
+keras>=3.10
+numpy>=1.26
+scikit-learn              # stratified train/val split
+matplotlib                # training curves, prediction previews
+pyyaml                    # YAML config files
+python-dotenv             # .env support in config.py
+
+# ---- ONNX export (train/export_onnx.py) ----
+tf2onnx>=1.16
+onnx>=1.16

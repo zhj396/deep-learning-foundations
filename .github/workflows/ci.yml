@@ -1,0 +1,47 @@
+# Gate: flake8 (repo-root .flake8) then CPU smoke tests for the cifar10
+# training pipeline. No GPU, no dataset download, no pretrained weights:
+# the smoke tests build only the weight-free backbones and exercise the
+# MixUp/CutMix graph path on synthetic tensors.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # tensorflow 2.18 ships wheels for 3.9-3.12; the requirements floor
+        # is 3.10, so the gate covers the top two supported versions
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install flake8 pytest
+          # Plain CPU tensorflow build - the same substitution
+          # cifar10/requirements.txt itself recommends for CPU-only
+          # machines; the [and-cuda] extra's ~3 GB of CUDA wheels are
+          # unnecessary on the runner. Keras 3.10.0 is the requirements
+          # floor (Keras 3.7-3.9 has a multi-GPU NaN metrics bug, see
+          # requirements.txt).
+          python -m pip install "tensorflow==2.18.*" "keras==3.10.0" \
+            scikit-learn matplotlib pyyaml python-dotenv tf2onnx onnx
+
+      - name: Lint
+        run: flake8 .
+
+      - name: Smoke tests
+        working-directory: cifar10/train
+        run: python -m pytest -q
