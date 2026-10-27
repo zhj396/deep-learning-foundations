@@ -1,0 +1,13 @@
+# ============================================================
+# Data-prep dependencies (local CPU). Install:
+#   pip install -r requirements.txt
+# ============================================================
+sentencepiece>=0.2.0   # BPE vocab training; prebuilt wheels for Windows/Linux
+xxhash>=3.4            # fast 64-bit hashing for pair deduplication
+
+# ---- fastText language ID (lid.176.bin) ----
+# 'fasttext-predict' ships prebuilt wheels for current Python versions
+# (incl. 3.13, where 'fasttext-wheel' has no wheel and source builds
+# fail) and exposes the same load_model()/predict() surface; this
+# pipeline only needs LID prediction, not fastText training.
+fasttext-predict>=0.9.2

@@ -1,0 +1,20 @@
+# Data-prep artifacts (regenerable; never commit)
+data/
+lid.176.bin
+*.part
+
+# SentencePiece artifacts
+*.model
+*.vocab
+
+# Training outputs
+checkpoints/
+
+# ONNX exports (regenerable)
+artifacts/
+*.onnx
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
