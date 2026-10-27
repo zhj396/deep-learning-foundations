@@ -11,11 +11,16 @@ description = "Deep-learning fundamentals: multi-backbone CIFAR-10 training (Ten
 requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
-# Run all suites from the repository root; pytest inserts each test
-# directory into sys.path, which the flat module layouts' imports (from
-# config import Config, ... in cifar10/train; from app import app, ...
-# in cifar10/inference; from prep_config import ... in
-# transformer-pt-en/data_prep) rely on. The transformer-pt-en/tests
-# suite needs xxhash (data_prep/requirements.txt); without it those
-# tests are skipped, not failed.
-testpaths = ["cifar10/train", "cifar10/inference", "transformer-pt-en/tests"]
+# Bare pytest runs the transformer-pt-en suite from the repository root;
+# pytest inserts transformer-pt-en/tests into sys.path, and conftest.py
+# there adds the flat train/ and data_prep/ script dirs its imports rely
+# on. The suite needs xxhash (data_prep/requirements.txt); without it
+# those tests are skipped, not failed.
+#
+# The cifar10 suites are NOT listed: their flat train/inference dirs
+# share module names (config, model, utils, dataset, scheduler, ...) with
+# transformer-pt-en/train, so collecting them in the same pytest process
+# resolves the wrong modules. Run each from its own directory instead
+# (python -m pytest -q inside cifar10/train and cifar10/inference), as
+# the CI workflow does.
+testpaths = ["transformer-pt-en/tests"]
