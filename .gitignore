@@ -1,0 +1,44 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- IDE / OS ----
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ---- Environment / secrets ----
+.env
+
+# ---- Training outputs (regenerable, never commit) ----
+checkpoints/
+artifacts/
+runs/
+*.log
+wandb/
+
+# ---- Model files (large binaries; export locally from checkpoints) ----
+*.keras
+*.h5
+*.pb
+*.tflite
+*.onnx
+saved_model/
+
+# ---- Data ----
+data/
+*.zip
+*.tar.gz
+
+# ---- Test / coverage ----
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
