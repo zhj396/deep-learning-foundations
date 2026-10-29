@@ -1,0 +1,566 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Image Classification</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Small pulse animation */
+    .pulse-dot { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { transform: scale(1); opacity: 1 } 70% { transform: scale(1.6); opacity: .3 } 100% { transform: scale(1); opacity: 1 } }
+
+    /* Drag-and-drop highlight */
+    .drag-over { box-shadow: 0 6px 30px rgba(0,0,0,0.12); }
+
+    /* File list styling */
+    .file-item { transition: all 0.2s ease; }
+    .file-item:hover { background-color: #f8fafc; }
+    .file-item.selected { background-color: #e0e7ff; border-left: 3px solid #4f46e5; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div class="max-w-6xl mx-auto p-6">
+    <header class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold">Image Classification</h1>
+      <div class="text-sm text-slate-600">Models: CNN / ResNet / ResNet50 / EfficientNetB0</div>
+    </header>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="md:col-span-2 space-y-6">
+        <!-- Upload area -->
+        <div class="bg-white p-4 rounded shadow">
+          <h2 class="text-lg font-semibold mb-4">Upload Files</h2>
+          <div id="dropArea" class="border-2 border-dashed border-slate-300 rounded-lg p-6 bg-white transition-all" >
+            <div class="flex items-center gap-4">
+              <div class="flex-1">
+                <div class="text-lg font-medium">Drag images or a ZIP here, or click to browse</div>
+                <div class="text-sm text-slate-500">Multi-image upload (field name: files) or ZIP batch. Top-k and model selection are sent to the backend.</div>
+              </div>
+              <div>
+                <button id="browseBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Browse Files</button>
+              </div>
+            </div>
+
+            <input id="fileInput" type="file" multiple class="hidden" />
+
+            <div id="help" class="mt-4 text-sm text-slate-500">Example: upload several PNG/JPG files at once, or a single ZIP containing images.</div>
+          </div>
+
+          <!-- Progress bar + loader -->
+          <div class="mt-4 flex items-center gap-4">
+            <div class="w-full bg-white rounded p-4 border">
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-medium">Upload Progress</div>
+                <div id="statusText" class="text-sm text-slate-500">Idle</div>
+              </div>
+              <div class="mt-3">
+                <div class="w-full bg-slate-100 rounded overflow-hidden h-3">
+                  <div id="progressBar" style="width:0%" class="h-3 bg-indigo-500 transition-all"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="w-24">
+              <div id="loader" class="hidden flex-col items-center gap-2 text-center">
+                <div class="w-8 h-8 rounded-full bg-indigo-500 pulse-dot"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 flex justify-end">
+            <button id="uploadBtn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Upload Files</button>
+          </div>
+        </div>
+
+        <!-- Uploaded file list -->
+        <div class="bg-white p-4 rounded shadow">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold">Uploaded Files</h2>
+            <div class="flex gap-2">
+              <button id="refreshFilesBtn" class="px-3 py-1 bg-slate-100 rounded text-sm hover:bg-slate-200">Refresh</button>
+              <button id="clearFilesBtn" class="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200">Clear</button>
+            </div>
+          </div>
+
+          <div id="filesList" class="border rounded max-h-60 overflow-y-auto">
+            <div class="p-4 text-center text-slate-500">No uploaded files yet</div>
+          </div>
+
+          <div class="mt-4 flex justify-between">
+            <div class="text-sm text-slate-600">
+              <span id="selectedCount">0</span> file(s) selected
+            </div>
+            <div class="flex gap-2">
+              <button id="selectAllBtn" class="px-3 py-1 bg-slate-100 rounded text-sm hover:bg-slate-200">Select All</button>
+              <button id="deselectAllBtn" class="px-3 py-1 bg-slate-100 rounded text-sm hover:bg-slate-200">Deselect All</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results table -->
+        <div id="resultsCard" class="bg-white p-4 rounded shadow hidden">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="font-semibold">Inference Results (Preview)</h2>
+            <div class="flex items-center gap-2">
+              <button id="downloadCsvBtn" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Download CSV</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table id="resultsTable" class="w-full text-left table-auto">
+              <thead class="text-slate-600 text-sm">
+                <tr>
+                  <th class="px-3 py-2">#</th>
+                  <th class="px-3 py-2">Filename</th>
+                  <th class="px-3 py-2">Top-k</th>
+                  <th class="px-3 py-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-slate-50 p-3 rounded">
+              <canvas id="barChart"></canvas>
+            </div>
+            <div id="detailCard" class="bg-slate-50 p-3 rounded text-sm text-slate-700">Select a row to view details</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="bg-white p-4 rounded shadow">
+        <div class="mb-4">
+          <label class="block text-sm text-slate-600 mb-1">Model</label>
+          <select id="modelSelect" class="w-full border rounded px-2 py-2">
+            <option value="cnn">cnn</option>
+            <option value="resnet">resnet</option>
+            <option value="resnet50">resnet50</option>
+            <option value="efficientnetb0">efficientnetb0</option>
+          </select>
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm text-slate-600 mb-1">Top-k</label>
+          <input id="topKInput" type="number" value="3" min="1" max="10" class="w-full border rounded px-2 py-2" />
+        </div>
+
+        <div class="mb-4">
+          <label class="block text-sm text-slate-600 mb-1">File Types</label>
+          <div class="text-sm text-slate-500">PNG/JPG/JPEG images, or a ZIP archive containing images</div>
+        </div>
+
+        <div class="flex gap-2">
+          <button id="predictBtn" class="flex-1 px-3 py-2 bg-indigo-600 text-white rounded">Run Inference</button>
+          <button id="resetBtn" class="px-3 py-2 border rounded">Reset</button>
+        </div>
+
+        <div class="mt-6 p-3 bg-blue-50 rounded border border-blue-200">
+          <h3 class="font-medium text-blue-800 mb-2">How to Use</h3>
+          <ul class="text-sm text-blue-700 space-y-1">
+            <li>1. Upload files</li>
+            <li>2. Select files</li>
+            <li>3. Configure parameters</li>
+            <li>4. Run inference</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="mt-8 text-sm text-slate-500">Note: backend endpoint /upload stores files, /predict_from_dir runs inference on them.</footer>
+  </div>
+
+<script>
+  // Elements
+  const dropArea = document.getElementById('dropArea');
+  const fileInput = document.getElementById('fileInput');
+  const browseBtn = document.getElementById('browseBtn');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const statusText = document.getElementById('statusText');
+  const progressBar = document.getElementById('progressBar');
+  const loader = document.getElementById('loader');
+  const resultsCard = document.getElementById('resultsCard');
+  const resultsTableBody = document.querySelector('#resultsTable tbody');
+  const downloadCsvBtn = document.getElementById('downloadCsvBtn');
+  const modelSelect = document.getElementById('modelSelect');
+  const topKInput = document.getElementById('topKInput');
+  const predictBtn = document.getElementById('predictBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  const detailCard = document.getElementById('detailCard');
+  const filesList = document.getElementById('filesList');
+  const refreshFilesBtn = document.getElementById('refreshFilesBtn');
+  const clearFilesBtn = document.getElementById('clearFilesBtn');
+  const selectAllBtn = document.getElementById('selectAllBtn');
+  const deselectAllBtn = document.getElementById('deselectAllBtn');
+  const selectedCount = document.getElementById('selectedCount');
+
+  let currentFiles = []; // Files picked in the browser, pending upload
+  let uploadedFiles = []; // Files already stored on the server
+  let selectedFiles = []; // Files selected for inference
+  let lastCsvUrl = null;
+  let chart = null;
+
+  // Init
+  document.addEventListener('DOMContentLoaded', () => {
+    loadUploadedFiles();
+  });
+
+  // Open the file browser
+  browseBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    currentFiles = Array.from(e.target.files);
+    highlightDropArea(false);
+    statusText.textContent = `${currentFiles.length} file(s) selected`;
+    progressBar.style.width = '100%';
+  });
+
+  // Drag-and-drop effects
+  ['dragenter', 'dragover'].forEach(evt => {
+    dropArea.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); highlightDropArea(true); });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    dropArea.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); highlightDropArea(false); });
+  });
+
+  dropArea.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    currentFiles = Array.from(dt.files);
+    statusText.textContent = `${currentFiles.length} file(s) selected`;
+    progressBar.style.width = '100%';
+  });
+
+  function highlightDropArea(enabled) {
+    dropArea.classList.toggle('drag-over', enabled);
+  }
+
+  // Upload files to the server
+  uploadBtn.addEventListener('click', async () => {
+    if (!currentFiles || currentFiles.length === 0) {
+      alert('Please select files first (images or ZIP)');
+      return;
+    }
+
+    try {
+      loader.classList.remove('hidden');
+      statusText.textContent = 'Uploading...';
+
+      const formData = new FormData();
+      currentFiles.forEach(file => {
+        formData.append('files', file);
+      });
+
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        // Update the uploaded-file list
+        result.files.forEach(filePath => {
+          const fileName = filePath.split(/[\\/]/).pop();
+          const fileInfo = {
+            id: Date.now() + Math.random(),
+            name: fileName,
+            path: filePath,
+          };
+
+          if (!uploadedFiles.some(f => f.path === filePath)) {
+            uploadedFiles.push(fileInfo);
+          }
+        });
+
+        saveUploadedFiles();
+        loadUploadedFiles();
+        statusText.textContent = `Upload complete: ${result.files.length} file(s) added`;
+        progressBar.style.width = '100%';
+
+        // Reset the current browser selection
+        currentFiles = [];
+        fileInput.value = null;
+
+        setTimeout(() => {
+          progressBar.style.width = '0%';
+          statusText.textContent = 'Idle';
+        }, 2000);
+      } else {
+        throw new Error(result.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+      statusText.textContent = 'Upload failed';
+      alert('Upload failed: ' + error.message);
+    } finally {
+      loader.classList.add('hidden');
+    }
+  });
+
+  // Persist the uploaded-file list in localStorage
+  function saveUploadedFiles() {
+    localStorage.setItem('uploadedFiles', JSON.stringify(uploadedFiles));
+  }
+
+  // Restore the uploaded-file list from localStorage
+  function loadUploadedFiles() {
+    const storedFiles = localStorage.getItem('uploadedFiles');
+    if (storedFiles) {
+      uploadedFiles = JSON.parse(storedFiles);
+    }
+
+    renderFilesList();
+  }
+
+  // Render the file list
+  function renderFilesList() {
+    if (uploadedFiles.length === 0) {
+      filesList.innerHTML = '<div class="p-4 text-center text-slate-500">No uploaded files yet</div>';
+      selectedCount.textContent = '0';
+      return;
+    }
+
+    filesList.innerHTML = '';
+
+    uploadedFiles.forEach(file => {
+      const fileItem = document.createElement('div');
+      fileItem.className = 'file-item p-3 border-b flex items-center gap-3';
+      fileItem.dataset.id = file.id;
+
+      const isSelected = selectedFiles.includes(file.id);
+      if (isSelected) {
+        fileItem.classList.add('selected');
+      }
+
+      // File icon
+      const icon = document.createElement('div');
+      icon.className = 'w-8 h-8 bg-indigo-100 rounded flex items-center justify-center';
+      icon.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      `;
+
+      // File info
+      const fileInfo = document.createElement('div');
+      fileInfo.className = 'flex-1';
+      fileInfo.innerHTML = `
+        <div class="font-medium text-sm">${file.name}</div>
+        <div class="text-xs text-slate-500">${file.path}</div>
+      `;
+
+      // Selection checkbox
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = isSelected;
+      checkbox.className = 'file-checkbox';
+      checkbox.addEventListener('change', (e) => {
+        e.stopPropagation();
+        toggleFileSelection(file.id, checkbox.checked);
+      });
+
+      fileItem.appendChild(checkbox);
+      fileItem.appendChild(icon);
+      fileItem.appendChild(fileInfo);
+
+      fileItem.addEventListener('click', (e) => {
+        if (e.target !== checkbox) {
+          checkbox.checked = !checkbox.checked;
+          toggleFileSelection(file.id, checkbox.checked);
+        }
+      });
+
+      filesList.appendChild(fileItem);
+    });
+
+    selectedCount.textContent = selectedFiles.length;
+  }
+
+  // Toggle a file's selection state
+  function toggleFileSelection(fileId, selected) {
+    if (selected) {
+      if (!selectedFiles.includes(fileId)) {
+        selectedFiles.push(fileId);
+      }
+    } else {
+      const index = selectedFiles.indexOf(fileId);
+      if (index > -1) {
+        selectedFiles.splice(index, 1);
+      }
+    }
+
+    renderFilesList();
+  }
+
+  // Select all / deselect all
+  selectAllBtn.addEventListener('click', () => {
+    selectedFiles = uploadedFiles.map(file => file.id);
+    renderFilesList();
+  });
+
+  deselectAllBtn.addEventListener('click', () => {
+    selectedFiles = [];
+    renderFilesList();
+  });
+
+  // Refresh the file list
+  refreshFilesBtn.addEventListener('click', () => {
+    loadUploadedFiles();
+  });
+
+  // Clear the file list
+  clearFilesBtn.addEventListener('click', () => {
+    if (confirm('Clear the whole uploaded-file list?')) {
+      uploadedFiles = [];
+      selectedFiles = [];
+      saveUploadedFiles();
+      loadUploadedFiles();
+    }
+  });
+
+  // Reset the UI
+  resetBtn.addEventListener('click', () => {
+    fileInput.value = null;
+    currentFiles = [];
+    resultsCard.classList.add('hidden');
+    resultsTableBody.innerHTML = '';
+    progressBar.style.width = '0%';
+    statusText.textContent = 'Idle';
+    lastCsvUrl = null;
+  });
+
+  // Send the inference request
+  predictBtn.addEventListener('click', async () => {
+    if (selectedFiles.length === 0) {
+      alert('Please select files to run inference on');
+      return;
+    }
+
+    try {
+      const model = modelSelect.value;
+      const top_k = parseInt(topKInput.value || '3');
+
+      // Gather the selected server-side paths
+      const selectedFileInfos = uploadedFiles.filter(file => selectedFiles.includes(file.id));
+      const filePaths = selectedFileInfos.map(file => file.path);
+
+      loader.classList.remove('hidden');
+      resultsCard.classList.add('hidden');
+      statusText.textContent = 'Running inference...';
+
+      const response = await fetch('/predict_from_dir', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model_name: model,
+          top_k: top_k,
+          files: filePaths
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.status === 'success') {
+        loader.classList.add('hidden');
+        statusText.textContent = `Done: ${result.total} result(s)`;
+        lastCsvUrl = result.csv_url;
+        populateResults(result.results || []);
+        resultsCard.classList.remove('hidden');
+      } else {
+        throw new Error(result.error || result.message || 'Inference failed');
+      }
+    } catch (error) {
+      console.error('Inference failed:', error);
+      loader.classList.add('hidden');
+      statusText.textContent = 'Inference failed';
+      alert('Inference failed: ' + error.message);
+    }
+  });
+
+  // Download the result CSV
+  downloadCsvBtn.addEventListener('click', () => {
+    if (!lastCsvUrl) {
+      alert('No CSV available yet');
+      return;
+    }
+    window.open(lastCsvUrl, '_blank');
+  });
+
+  // Fill the results table
+  function populateResults(resultsPreview) {
+    resultsTableBody.innerHTML = '';
+    resultsPreview.forEach((r, i) => {
+      const tr = document.createElement('tr');
+      tr.className = 'border-t';
+      tr.innerHTML = `
+        <td class="px-3 py-2 text-sm">${i+1}</td>
+        <td class="px-3 py-2 text-sm">${r.filename}</td>
+        <td class="px-3 py-2 text-sm">${r.top.map(t => `${t.class} (${(t.confidence*100).toFixed(2)}%)`).join('<br>')}</td>
+        <td class="px-3 py-2 text-sm"><button class="viewBtn px-2 py-1 bg-indigo-600 text-white rounded text-xs">View</button></td>
+      `;
+      resultsTableBody.appendChild(tr);
+
+      tr.querySelector('.viewBtn').addEventListener('click', () => {
+        showDetail(r);
+      });
+    });
+  }
+
+  // Show the top-k bar chart for one row
+  function showDetail(row) {
+    detailCard.innerHTML = `<div class="font-medium mb-2">${row.filename}</div>`;
+    const labels = row.top.map(x => x.class);
+    const values = row.top.map(x => Math.round(x.confidence * 100));
+
+    if (chart) chart.destroy();
+    chart = new Chart(barCtx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Confidence (%)',
+          data: values,
+          backgroundColor: 'rgba(79, 70, 229, 0.7)',
+          borderColor: 'rgba(79, 70, 229, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100,
+            ticks: {
+              callback: function(value) {
+                return value + '%';
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Detailed list
+    const list = document.createElement('div');
+    list.className = 'mt-3';
+    row.top.forEach((t, idx) => {
+      const p = document.createElement('div');
+      p.className = 'text-sm py-1 border-b';
+      p.innerHTML = `<strong>${idx+1}. ${t.class}</strong> — ${(t.confidence*100).toFixed(2)}%`;
+      list.appendChild(p);
+    });
+    detailCard.appendChild(list);
+  }
+</script>
+</body>
+</html>

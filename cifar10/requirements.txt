@@ -2,6 +2,8 @@
 # CIFAR-10 project dependencies (Python >= 3.10 recommended)
 # ============================================================
 # Install everything:   pip install -r requirements.txt
+# ONNX backend only:    pip install onnxruntime flask flask-cors pillow numpy
+#                       (needs NO TensorFlow)
 
 # ---- Training (cifar10/train) ----
 # Version floors: TensorFlow >= 2.18 and Keras >= 3.10. Keras 3.7-3.9 has a
@@ -25,3 +27,10 @@ python-dotenv             # .env support in config.py
 # ---- ONNX export (train/export_onnx.py) ----
 tf2onnx>=1.16
 onnx>=1.16
+
+# ---- Inference service (cifar10/inference) ----
+# BACKEND=onnx needs only onnxruntime (+ flask stack); BACKEND=tf needs tensorflow
+flask>=3.0
+flask-cors
+pillow
+onnxruntime>=1.17

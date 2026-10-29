@@ -1,7 +1,9 @@
-# Gate: flake8 (repo-root .flake8) then CPU smoke tests for the cifar10
-# training pipeline. No GPU, no dataset download, no pretrained weights:
-# the smoke tests build only the weight-free backbones and exercise the
-# MixUp/CutMix graph path on synthetic tensors.
+# Gate: flake8 (repo-root .flake8), CPU smoke tests for the cifar10
+# training pipeline, and the inference service test suite. No GPU, no
+# dataset download, no pretrained weights: the smoke tests build only
+# the weight-free backbones and exercise the MixUp/CutMix graph path on
+# synthetic tensors; the inference suite serves a synthetic ONNX model
+# through Flask's test client.
 name: CI
 
 on:
@@ -37,11 +39,16 @@ jobs:
           # floor (Keras 3.7-3.9 has a multi-GPU NaN metrics bug, see
           # requirements.txt).
           python -m pip install "tensorflow==2.18.*" "keras==3.10.0" \
-            scikit-learn matplotlib pyyaml python-dotenv tf2onnx onnx
+            scikit-learn matplotlib pyyaml python-dotenv tf2onnx onnx \
+            "flask>=3" flask-cors pillow "onnxruntime>=1.17"
 
       - name: Lint
         run: flake8 .
 
       - name: Smoke tests
         working-directory: cifar10/train
+        run: python -m pytest -q
+
+      - name: Inference service tests
+        working-directory: cifar10/inference
         run: python -m pytest -q
