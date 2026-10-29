@@ -178,3 +178,24 @@ I/O contract: NHWC float32, dynamic batch — identical to the SavedModel.
 
 - `checkpoints/<model>/figures/accuracy.png`, `loss.png` — train/val curves (smoothed; raw values in `logs/train.log`)
 - `checkpoints/<model>/figures/predictions.png` — first 10 test images with true/pred labels + confidence
+
+## Results (full runs on Kaggle T4 ×2, 2026-10-29)
+
+MirroredStrategy, 2 replicas, global batch 128 (64/GPU); seed 42, stratified
+40k/10k/10k split; test set is the official CIFAR-10 10k.
+
+| Model | Recipe | Test acc | Notes |
+|---|---|---|---|
+| cnn | scratch, 50 epochs max, flip + MixUp/CutMix | **86.78%** | early stop at 44 (best ep 38) |
+| resnet | scratch, 50 epochs max, flip + MixUp/CutMix | **86.67%** | 0.73M params; early stop at 31 (best ep 25) |
+| resnet50 | transfer, 30 + fine-tune (top 20%, lr 1e-5) | **94.53%** | frozen phase val 0.9096 → fine-tuned 0.9493 (+4.0pp) |
+| efficientnetb0 | transfer, 30 + fine-tune (top 20%, lr 1e-5) | **94.35%** | frozen phase val 0.8989 → fine-tuned 0.9441 (+4.5pp) |
+
+Takeaways: from-scratch models plateau ~86.7% regardless of architecture size
+(0.55M vs 0.73M params); two-phase transfer adds ~8pp, with the fine-tune
+phase contributing roughly half of the transfer gain.
+
+Serving parity: all four exported ONNX models re-evaluated on the full 10k
+test set through the inference service's preprocessing (`../inference/`,
+ONNX Runtime CPU) match the training-log accuracies within ±0.1pp
+(PIL vs `tf.image.resize` interpolation).
