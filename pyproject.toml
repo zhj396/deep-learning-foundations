@@ -11,7 +11,8 @@ description = "Deep-learning fundamentals: multi-backbone CIFAR-10 training (Ten
 requires-python = ">=3.10"
 
 [tool.pytest.ini_options]
-# Run the cifar10 smoke suite from the repository root; pytest inserts
-# cifar10/train into sys.path, which the flat module layout's imports
-# (from config import Config, ...) rely on.
-testpaths = ["cifar10/train"]
+# Run both cifar10 suites from the repository root; pytest inserts each
+# test directory into sys.path, which the flat module layouts' imports
+# (from config import Config, ... in train; from app import app, ...
+# in inference) rely on.
+testpaths = ["cifar10/train", "cifar10/inference"]
