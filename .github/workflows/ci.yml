@@ -1,9 +1,11 @@
-# Gate: flake8 (repo-root .flake8), CPU smoke tests for the cifar10
-# training pipeline, and the inference service test suite. No GPU, no
-# dataset download, no pretrained weights: the smoke tests build only
-# the weight-free backbones and exercise the MixUp/CutMix graph path on
-# synthetic tensors; the inference suite serves a synthetic ONNX model
-# through Flask's test client.
+# Gate: flake8 (repo-root .flake8), the cifar10 CPU smoke tests, the
+# cifar10 inference service test suite and the transformer-pt-en CPU
+# test suite. No GPU, no dataset download, no pretrained weights: the
+# smoke tests build only the weight-free backbones and exercise the
+# MixUp/CutMix graph path on synthetic tensors; the inference suite
+# serves a synthetic ONNX model through Flask's test client; the
+# transformer suite is CPU-only (the corpus-cleaning cases skip when
+# xxhash is absent, so the pinned set keeps every test active).
 name: CI
 
 on:
@@ -16,6 +18,7 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         # tensorflow 2.18 ships wheels for 3.9-3.12; the requirements floor
         # is 3.10, so the gate covers the top two supported versions
@@ -36,19 +39,29 @@ jobs:
           # cifar10/requirements.txt itself recommends for CPU-only
           # machines; the [and-cuda] extra's ~3 GB of CUDA wheels are
           # unnecessary on the runner. Keras 3.10.0 is the requirements
-          # floor (Keras 3.7-3.9 has a multi-GPU NaN metrics bug, see
-          # requirements.txt).
+          # floor: the first release past the multi-GPU metrics bug.
           python -m pip install "tensorflow==2.18.*" "keras==3.10.0" \
             scikit-learn matplotlib pyyaml python-dotenv tf2onnx onnx \
             "flask>=3" flask-cors pillow "onnxruntime>=1.17"
 
+      - name: Install transformer test dependencies
+        # CPU torch wheel plus numpy and xxhash: the transformer test
+        # suite is CPU-only, and the corpus-cleaning cases skip when
+        # xxhash is absent
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install numpy xxhash
+
       - name: Lint
         run: flake8 .
 
-      - name: Smoke tests
+      - name: Smoke tests (cifar10)
         working-directory: cifar10/train
         run: python -m pytest -q
 
-      - name: Inference service tests
+      - name: Inference service tests (cifar10)
         working-directory: cifar10/inference
         run: python -m pytest -q
+
+      - name: Tests (transformer-pt-en)
+        run: pytest -q transformer-pt-en/tests
