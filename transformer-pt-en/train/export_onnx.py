@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """Standalone ONNX exporter: checkpoint -> encoder + decoder-step graphs.
 
-Exports a trained checkpoint into an encoder + decoder-step ONNX pair,
-so greedy decoding can run under ONNX Runtime without importing torch --
-the torch-free serving path.
+Exports a trained checkpoint into the ONNX pair consumed by the inference
+service's ONNX backend (../inference, BACKEND=onnx): the service then runs
+greedy decoding under ONNX Runtime without importing torch.
 
 I/O contract (dynamic batch and sequence axes everywhere):
     encoder.onnx      src_tokens int64 (B,S)      -> memory float32 (B,S,D)
@@ -235,7 +235,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         description="Export a trained pt->en Transformer checkpoint to ONNX "
-                    "(encoder + decoder-step graphs for serving)"
+                    "(encoder + decoder-step graphs for inference/)"
     )
     parser.add_argument("--checkpoint", type=Path, required=True,
                         help="training checkpoint (.pt) produced by train/")
