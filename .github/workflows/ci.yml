@@ -4,8 +4,8 @@
 # smoke tests build only the weight-free backbones and exercise the
 # MixUp/CutMix graph path on synthetic tensors; the inference suite
 # serves a synthetic ONNX model through Flask's test client; the
-# transformer suite is CPU-only (the corpus-cleaning cases skip when
-# xxhash is absent, so the pinned set keeps every test active).
+# transformer suite is CPU-only (onnx cases skip when the package is
+# absent, so the pinned set keeps every test active).
 name: CI
 
 on:
@@ -45,12 +45,13 @@ jobs:
             "flask>=3" flask-cors pillow "onnxruntime>=1.17"
 
       - name: Install transformer test dependencies
-        # CPU torch wheel plus numpy and xxhash: the transformer test
-        # suite is CPU-only, and the corpus-cleaning cases skip when
-        # xxhash is absent
+        # CPU torch wheel; the transformer test suite is CPU-only and
+        # torch-free for the serving path (onnx/onnxruntime used by the
+        # parity tests, onnxscript by torch.onnx.export; xxhash by the
+        # corpus-cleaning tests)
         run: |
           python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
-          python -m pip install numpy xxhash
+          python -m pip install numpy xxhash onnx onnxruntime onnxscript
 
       - name: Lint
         run: flake8 .

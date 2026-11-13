@@ -1,7 +1,7 @@
 """Shared fixtures: sys.path bootstrap, fake SentencePiece, tiny model/cfg.
 
-The train/ and data_prep/ directories are flat script dirs (no packages),
-so tests import them via sys.path.
+The train/, data_prep/ and inference/ directories are flat script dirs (no
+packages), so tests import them via sys.path.
 """
 
 import sys
@@ -12,7 +12,7 @@ import pytest
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
-for _p in (ROOT / "train", ROOT / "data_prep"):
+for _p in (ROOT / "train", ROOT / "data_prep", ROOT / "inference"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
